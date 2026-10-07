@@ -1,0 +1,15 @@
+# Secret Sentinel ignore file — entries here never fail the build.
+# Keep it short and reviewed: every line is a finding nobody will be told about.
+#
+#   some/dir/          a directory (prefix match)
+#   *.snap             a glob on the path or file name
+#   rule:<rule-id>     a rule everywhere
+#   fingerprint:<fp>   one finding (the id printed in every report)
+#
+# Prefer `# sentinel:ignore` on the line itself for one-off fixtures.
+
+# Detection test fixtures: fake keys, on purpose.
+tests/
+
+# Example placeholder in the dashboard's "Test a snippet" box.
+fingerprint:db-url-with-credentials:static/index.html:2efbb5ba632ee47d

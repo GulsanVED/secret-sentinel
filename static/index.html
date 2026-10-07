@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Secret Sentinel · Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1117; --panel: #171a23; --panel-2: #1c2030; --border: #2a2e3a; --text: #e6e8ee;
+    --muted: #8b90a0; --accent: #5b8cff; --mint: #4fd1a5; --critical: #ff5468; --high: #ff9f43;
+    --medium: #ffd166; --ok: #4caf7d;
+    --ease: cubic-bezier(.2, .7, .2, 1);
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+  a { color: var(--accent); }
+  code { background: rgba(255,255,255,.06); padding: 1px 5px; border-radius: 4px; font-size: 12.5px; overflow-wrap: anywhere; }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 0 28px; }
+
+  /* Header: same as the start page */
+  header { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 20px 0; border-bottom: 1px solid var(--border); }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--text); text-decoration: none; }
+  .brand svg { width: 26px; height: 28px; color: var(--mint); }
+  header nav { display: flex; align-items: center; gap: 18px; }
+  header nav a { color: var(--muted); text-decoration: none; font-size: 14px; }
+  header nav a:hover, header nav a[aria-current] { color: var(--text); }
+  .live { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; }
+  .live i { width: 7px; height: 7px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 0 0 rgba(79,209,165,.6); animation: pulse 2.4s infinite; }
+  .live.busy i { background: var(--high); }
+  .live.down i { background: var(--critical); animation: none; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(79,209,165,.5); } 70% { box-shadow: 0 0 0 7px rgba(79,209,165,0); } 100% { box-shadow: 0 0 0 0 rgba(79,209,165,0); } }
+
+  main { padding: 34px 0 60px; }
+  .eyebrow { color: var(--mint); font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  h1 { font-size: clamp(24px, 3.2vw, 32px); line-height: 1.15; letter-spacing: -.5px; margin: 8px 0 6px; }
+  .lead { color: var(--muted); margin: 0 0 22px; font-size: 14.5px; max-width: 720px; }
+
+  /* Scan bar */
+  .scan { display: flex; gap: 10px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 12px; position: relative; }
+  .scan::before { content: ""; position: absolute; top: 0; left: 22px; right: 22px; height: 2px; background: var(--mint); border-radius: 2px; }
+  .scan input { flex: 1; min-width: 0; padding: 11px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 14px; font-family: inherit; transition: border-color .2s; }
+  .scan input:focus { border-color: var(--mint); outline: none; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 14px; border: 1px solid transparent; cursor: pointer; font-family: inherit; white-space: nowrap; transition: transform .15s var(--ease), opacity .2s, background .2s, border-color .2s, color .2s; }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: var(--mint); color: #0b0f18; }
+  .btn.small { padding: 5px 10px; font-size: 12px; font-weight: 500; background: transparent; border-color: var(--border); color: var(--text); }
+  .btn.small:hover { border-color: var(--muted); }
+  .btn.danger { color: var(--critical); }
+  .btn.danger:hover { border-color: rgba(255,84,104,.5); }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .btn:focus-visible, input:focus-visible, .tab:focus-visible, .chip:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
+  .spin { width: 13px; height: 13px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Server status chips, like the start page */
+  .status { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; font-size: 12px; color: var(--muted); }
+  .status > span, .status > a { border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; text-decoration: none; color: inherit; }
+  .status .yes { color: var(--ok); border-color: rgba(76,175,125,.4); }
+  .status .no { color: var(--high); border-color: rgba(255,159,67,.4); }
+  .status .bad { color: var(--critical); border-color: rgba(255,84,104,.4); }
+  .status a:hover { color: var(--text); }
+  .tips { margin-top: 10px; font-size: 13px; color: var(--muted); }
+  .tips summary { cursor: pointer; width: fit-content; }
+  .tips ul { margin: 8px 0 0; padding-left: 18px; }
+  .tips li { margin: 4px 0; }
+
+  /* Toast for scan results */
+  .toast { margin-top: 14px; padding: 11px 14px; border-radius: 10px; font-size: 13.5px; border: 1px solid var(--border); background: var(--panel); display: flex; gap: 10px; align-items: flex-start; animation: rise .35s var(--ease); }
+  .toast.ok { border-color: rgba(76,175,125,.45); }
+  .toast.warn { border-color: rgba(255,159,67,.45); }
+  .toast.err { border-color: rgba(255,84,104,.45); color: #ffb3bd; }
+  .toast .x { margin-left: auto; background: none; border: 0; color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1; padding: 0 2px; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* Stat tiles */
+  .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 26px 0; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .stat .n { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; transition: color .3s; }
+  .stat .l { font-size: 12.5px; color: var(--muted); }
+  .stat.danger .n { color: var(--critical); }
+  .stat.warn .n { color: var(--high); }
+  .stat.ok .n { color: var(--ok); }
+
+  /* Panels */
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 20px; }
+  .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .panel-head h2 { margin: 0; font-size: 15px; }
+  .count { color: var(--muted); font-weight: 400; }
+  .filter-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--mint); border: 1px solid rgba(79,209,165,.4); border-radius: 999px; padding: 2px 4px 2px 10px; }
+  .filter-pill button { background: none; border: 0; color: inherit; cursor: pointer; font-size: 14px; line-height: 1; padding: 0 4px; }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 11px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; background: var(--panel); position: sticky; top: 0; }
+  tbody tr { transition: background .2s; }
+  tbody tr:hover { background: rgba(255,255,255,.02); }
+  tr:last-child td { border-bottom: none; }
+  tr.clickable { cursor: pointer; }
+  tr.selected td { background: rgba(79,209,165,.06); }
+  tr.selected td:first-child { box-shadow: inset 3px 0 0 var(--mint); }
+  tr.fresh td { animation: flash 1.6s var(--ease); }
+  @keyframes flash { from { background: rgba(79,209,165,.14); } to { background: transparent; } }
+  .empty { padding: 28px 18px; color: var(--muted); font-size: 13.5px; text-align: center; }
+  .muted { color: var(--muted); font-size: 12px; }
+  td code.nw, td .nw { white-space: nowrap; overflow-wrap: normal; }
+  .err-text { color: var(--critical); font-size: 12px; }
+  .actions { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: nowrap; }
+
+  .sev { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; white-space: nowrap; }
+  .sev.critical { background: rgba(255,84,104,.15); color: var(--critical); }
+  .sev.high { background: rgba(255,159,67,.15); color: var(--high); }
+  .sev.medium { background: rgba(255,209,102,.15); color: var(--medium); }
+  .sev.low { background: rgba(139,144,160,.15); color: var(--muted); }
+  .pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+  .pill.in-code { background: rgba(255,84,104,.15); color: var(--critical); }
+  .pill.gone { background: rgba(76,175,125,.15); color: var(--ok); }
+  .pill.unknown { background: rgba(139,144,160,.15); color: var(--muted); }
+  .state { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; }
+  .state.running { color: var(--high); }
+  .state.done { color: var(--ok); }
+  .kind { font-weight: 600; white-space: nowrap; }
+  .kind-new_secret { color: var(--critical); }
+  .kind-secret_reintroduced { color: var(--high); }
+  .kind-secret_removed { color: var(--ok); }
+  .kind-history_secret { color: var(--medium); }
+  .kind-ci_blocked { color: var(--critical); }
+  .gate { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 6px; white-space: nowrap; }
+  .gate.blocked { background: rgba(255,84,104,.15); color: var(--critical); }
+  .gate.passed { background: rgba(76,175,125,.15); color: var(--ok); }
+  .gate.error, .gate.failed { background: rgba(255,159,67,.15); color: var(--high); }
+  .gate.running { background: rgba(91,140,255,.15); color: var(--accent); }
+  .gate.cancelled { background: rgba(139,144,160,.15); color: var(--muted); }
+  .ci-err { margin: 12px 16px 0; padding: 10px 12px; border-radius: 8px; font-size: 13px; border: 1px solid rgba(255,159,67,.45); color: var(--high); }
+  .ci-find { font-size: 12.5px; margin: 2px 0; }
+  .toolbar .right { display: flex; align-items: center; gap: 10px; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; padding: 6px; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+  .tab { flex: 0 0 auto; background: none; border: 0; color: var(--muted); font: inherit; font-size: 13.5px; font-weight: 600; padding: 9px 14px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: background .2s, color .2s; }
+  .tab:hover { color: var(--text); background: rgba(255,255,255,.03); }
+  .tab[aria-selected="true"] { color: var(--text); background: var(--panel-2); box-shadow: inset 0 -2px 0 var(--mint); }
+  .tab .badge { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: rgba(255,255,255,.07); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .tab .badge.hot { background: rgba(255,84,104,.18); color: var(--critical); }
+  .tabpanel { animation: fade .3s var(--ease); }
+  .tabpanel[hidden] { display: none; }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .toolbar p { margin: 0; color: var(--muted); font-size: 12.5px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { padding: 4px 11px; border-radius: 999px; border: 1px solid var(--border); font-size: 12px; cursor: pointer; background: transparent; color: var(--muted); font-weight: 500; font-family: inherit; transition: color .2s, border-color .2s; }
+  .chip:hover { color: var(--text); }
+  .chip[aria-pressed="true"] { border-color: var(--mint); color: var(--mint); }
+
+  details.trail-box summary { cursor: pointer; color: var(--muted); font-size: 12px; margin-top: 4px; width: fit-content; }
+  details.trail-box[open] summary { color: var(--text); }
+  .trail { margin: 8px 0 2px; border-left: 2px solid var(--border); padding-left: 10px; }
+  .trail-item { font-size: 12px; margin-bottom: 6px; }
+  .act-added { color: var(--critical); font-weight: 600; }
+  .act-removed { color: var(--ok); font-weight: 600; }
+
+  footer { border-top: 1px solid var(--border); padding: 18px 0 26px; color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+  @media (max-width: 760px) {
+    .wrap { padding: 0 16px; }
+    header nav { gap: 12px; }
+    .scan { flex-direction: column; }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    th, td { padding: 10px 12px; }
+    table { min-width: 720px; }            /* scroll sideways instead of squeezing */
+    .brand { white-space: nowrap; }
+    header nav a:first-child { display: none; }
+  }
+  @media (max-width: 480px) {
+    #liveText { display: none; }            /* the dot alone says live / scanning / offline */
+    .live { padding: 6px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="brand" href="/" title="Back to the start page">
+      <svg viewBox="0 0 32 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3 28 8v10c0 7-7 12-12 15C11 30 4 25 4 18V8Z"/><path d="m10 17 4 4 8-9"/></svg>
+      Secret Sentinel
+    </a>
+    <nav aria-label="Main">
+      <a href="/">Home</a>
+      <a href="/dashboard" aria-current="page">Dashboard</a>
+      <a href="https://github.com/ratnakarmishra712-jpg/hh#the-ci-pipeline">Docs</a>
+      <span class="live" id="live" title="The dashboard refreshes by itself"><i></i><span id="liveText">Live</span></span>
+    </nav>
+  </header>
+
+  <main>
+    <div class="eyebrow">Dashboard</div>
+    <h1>Secrets across your repositories</h1>
+    <p class="lead">Add a GitHub repository to scan its current code and its entire git history. It stays monitored: new pushes are scanned automatically, and you're alerted when a secret appears, is removed, or comes back.</p>
+
+    <form class="scan" id="scanForm" novalidate>
+      <input id="repoUrl" aria-label="GitHub repository URL" type="url" inputmode="url" autocomplete="off" placeholder="https://github.com/owner/repo   (add /tree/branch-name for another branch)">
+      <button class="btn primary" id="addBtn" type="submit">Scan repository <span aria-hidden="true">→</span></button>
+    </form>
+    <div class="status" id="status" aria-live="polite"></div>
+    <div id="toast" aria-live="polite"></div>
+
+    <div class="stats" id="stats"></div>
+
+    <section class="panel" aria-labelledby="reposTitle">
+      <div class="panel-head">
+        <h2 id="reposTitle">Monitored repositories <span class="count" id="repoCount"></span></h2>
+        <span class="muted">Click a repository to show only its findings.</span>
+      </div>
+      <div class="table-wrap" id="repos"></div>
+    </section>
+
+    <section class="panel">
+      <div class="tabs" role="tablist" aria-label="Findings">
+        <button class="tab" role="tab" id="tab-ci" aria-controls="panel-ci" data-tab="ci">CI runs <span class="badge" id="badge-ci">0</span></button>
+        <button class="tab" role="tab" id="tab-code" aria-controls="panel-code" data-tab="code">Secrets in code <span class="badge" id="badge-code">0</span></button>
+        <button class="tab" role="tab" id="tab-history" aria-controls="panel-history" data-tab="history">Git history <span class="badge" id="badge-history">0</span></button>
+        <button class="tab" role="tab" id="tab-alerts" aria-controls="panel-alerts" data-tab="alerts">Alert log <span class="badge" id="badge-alerts">0</span></button>
+        <button class="tab" role="tab" id="tab-resolved" aria-controls="panel-resolved" data-tab="resolved">Resolved <span class="badge" id="badge-resolved">0</span></button>
+        <span style="margin-left:auto; align-self:center; padding-right:8px" id="filterPill"></span>
+      </div>
+
+      <div class="tabpanel" role="tabpanel" id="panel-ci" aria-labelledby="tab-ci">
+        <div class="toolbar">
+          <p>Secret scan runs from GitHub Actions, newest first. The check blocks the merge; this is its record.</p>
+          <div class="right"><span class="muted" id="ciSynced"></span><button class="chip" id="ciRefresh" onclick="syncCi(true)">Refresh</button></div>
+        </div>
+        <div id="ciErrors"></div>
+        <div class="table-wrap" id="ciTable"></div>
+      </div>
+
+      <div class="tabpanel" role="tabpanel" id="panel-code" aria-labelledby="tab-code" hidden>
+        <div class="toolbar"><p>Secrets in the latest commit of each monitored branch.</p></div>
+        <div class="table-wrap" id="codeTable"></div>
+      </div>
+
+      <div class="tabpanel" role="tabpanel" id="panel-history" aria-labelledby="tab-history" hidden>
+        <div class="toolbar">
+          <p id="historyNote">Every secret ever committed, including ones deleted since. Refreshed on every new push.</p>
+          <div class="chips" id="historyFilters"></div>
+        </div>
+        <div class="table-wrap" id="historyTable"></div>
+      </div>
+
+      <div class="tabpanel" role="tabpanel" id="panel-alerts" aria-labelledby="tab-alerts" hidden>
+        <div class="toolbar">
+          <p>Every alert raised, newest first.</p>
+          <div class="chips" id="alertFilters"></div>
+        </div>
+        <div class="table-wrap" id="alertTable"></div>
+      </div>
+
+      <div class="tabpanel" role="tabpanel" id="panel-resolved" aria-labelledby="tab-resolved" hidden>
+        <div class="toolbar"><p>Secrets that were in the code and have since been removed. They stay in git history: rotate any that were real.</p></div>
+        <div class="table-wrap" id="resolvedTable"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Secret Sentinel · secrets detection for code and git history</span>
+    <span>Values are always masked. Rotate anything that leaked.</span>
+  </footer>
+</div>
+
+<script>
+const state = {
+  repoId: null,              // selected repository filter
+  tab: "code",
+  historyFilter: "all",      // all | history_only | present
+  ciRuns: [],
+  alertFilter: "all",        // all | new_secret | secret_removed | history_secret
+  repos: [],
+  busy: new Set(),           // repo ids with a scan in flight from this page
+  seen: { alerts: null },    // alert ids already shown, to flash new ones
+  lastOk: null,
+};
+const $ = id => document.getElementById(id);
+const esc = s => (s ?? "").toString().replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function ago(ts) {
+  if (!ts) return "never";
+  const s = Math.max(0, Date.now() / 1000 - ts);
+  if (s < 45) return "just now";
+  if (s < 3600) return `${Math.round(s / 60)} min ago`;
+  if (s < 86400) return `${Math.round(s / 3600)} h ago`;
+  return new Date(ts * 1000).toLocaleDateString();
+}
+const fullTime = ts => ts ? new Date(ts * 1000).toLocaleString() : "";
+const fmtDate = d => { if (!d) return "—"; const t = new Date(d);
+  return isNaN(t) ? esc(d) : t.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }); };
+const every = sec => sec < 90 ? `${sec} s` : `${Math.round(sec / 60)} min`;
+const repoSlug = url => (url || "").replace("https://github.com/", "").replace(/\/tree\/.*/, "");
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, { headers: { "Content-Type": "application/json" }, ...opts });
+  const text = await res.text();
+  let data; try { data = JSON.parse(text); } catch { data = { detail: text }; }
+  if (!res.ok) throw new Error(data.detail || `HTTP ${res.status}`);
+  return data;
+}
+
+// Only touch the DOM when the content really changed: no flicker, and open
+// commit trails or a scrolled table stay as they are between refreshes.
+const rendered = {};
+function render(id, html) {
+  if (rendered[id] === html) return;
+  const el = $(id);
+  const open = [...el.querySelectorAll("details[open][data-key]")].map(d => d.dataset.key);
+  el.innerHTML = html;
+  open.forEach(k => { const d = el.querySelector(`details[data-key="${CSS.escape(k)}"]`); if (d) d.open = true; });
+  rendered[id] = html;
+}
+
+function toast(html, kind = "") {
+  $("toast").innerHTML = html ? `<div class="toast ${kind}"><div>${html}</div><button class="x" aria-label="Dismiss" onclick="toast('')">×</button></div>` : "";
+}
+
+// ---------------------------------------------------------------- actions
+function describeScan(d) {
+  let s = `<b>${esc(d.owner)}/${esc(d.name)}</b> @ <code>${esc((d.latest_commit || "").slice(0, 7))}</code>: ${d.files_scanned} files scanned`;
+  if (d.files_skipped) s += `, ${d.files_skipped} skipped (binary or lockfiles)`;
+  s += `. <b>${d.new_findings}</b> new, <b>${d.removed_findings}</b> resolved, <b>${d.active_findings ?? "?"}</b> in the code.`;
+  if (d.history_scan === "queued") s += ` Git history is being refreshed in the background.`;
+  if (d.files_failed) s += `<br>${d.files_failed} file(s) could not be downloaded: ${esc((d.failed_examples || []).join(", "))}`;
+  if (d.truncated) s += `<br>GitHub truncated the file list (very large repo), so some files were not scanned.`;
+  return s;
+}
+
+async function addRepo(e) {
+  e && e.preventDefault();
+  const input = $("repoUrl"), btn = $("addBtn");
+  const url = input.value.trim();
+  if (!url) { input.focus(); return; }
+  btn.disabled = true;
+  btn.innerHTML = `<span class="spin" aria-hidden="true"></span> Scanning…`;
+  toast("Downloading and scanning every file. Larger repositories can take a minute.");
+  try {
+    const d = await api("/api/repos", { method: "POST", body: JSON.stringify({ url }) });
+    toast(describeScan(d), d.files_failed ? "warn" : "ok");
+    state.repoId = d.repo_id;
+    input.value = "";
+  } catch (err) {
+    toast("Scan failed: " + esc(err.message), "err");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `Scan repository <span aria-hidden="true">→</span>`;
+    refreshAll();
+  }
+}
+
+async function repoAction(ev, id, kind) {
+  ev.stopPropagation();
+  const repo = state.repos.find(r => r.id === id);
+  const label = repo ? `${repo.owner}/${repo.name}` : "repository";
+  if (kind === "remove") {
+    if (!confirm(`Stop monitoring ${label} and delete its findings and alerts?`)) return;
+    try {
+      await api(`/api/repos/${id}`, { method: "DELETE" });
+      if (state.repoId === id) state.repoId = null;
+      toast(`Stopped monitoring <b>${esc(label)}</b>.`, "ok");
+    } catch (err) { toast("Remove failed: " + esc(err.message), "err"); }
+    return refreshAll();
+  }
+  state.busy.add(id);
+  refreshRepos();
+  try {
+    if (kind === "rescan") {
+      toast(describeScan(await api(`/api/repos/${id}/rescan?full=true`, { method: "POST" })), "ok");
+    } else {
+      await api(`/api/repos/${id}/history-scan`, { method: "POST" });
+      toast(`Walking every commit of <b>${esc(label)}</b> in the background. The Git history tab updates when it finishes.`, "ok");
+    }
+  } catch (err) {
+    toast(`${kind === "rescan" ? "Rescan" : "History scan"} failed: ${esc(err.message)}`, "err");
+  } finally {
+    state.busy.delete(id);
+    refreshAll();
+  }
+}
+
+function selectRepo(id) { state.repoId = state.repoId === id ? null : id; refreshAll(); }
+
+function setTab(tab, focus) {
+  state.tab = tab;
+  document.querySelectorAll(".tab").forEach(t => {
+    const on = t.dataset.tab === tab;
+    t.setAttribute("aria-selected", on);
+    t.tabIndex = on ? 0 : -1;
+    if (on && focus) t.focus();
+  });
+  document.querySelectorAll(".tabpanel").forEach(p => p.hidden = p.id !== `panel-${tab}`);
+  try { history.replaceState(null, "", "#" + tab); } catch {}
+  if (tab === "ci" && state.lastOk) refreshAll();   // pull fresh runs from GitHub
+}
+
+async function testEmail(ev) {
+  ev.preventDefault();
+  toast("Sending a test email…");
+  try { toast(`Test email sent to ${esc((await api("/api/test-email", { method: "POST" })).sent_to)}.`, "ok"); }
+  catch (err) { toast("Test email failed: " + esc(err.message), "err"); }
+}
+
+// ---------------------------------------------------------------- views
+async function refreshStatus() {
+  const s = await api("/api/status");
+  const mins = every(s.poll_interval_seconds);
+  const chip = (cls, text, title) => `<span class="${cls}" title="${esc(title || "")}">${text}</span>`;
+  const channels = Object.entries(s.alert_channels).filter(([, v]) => v).map(([k]) => k);
+  const tips = [];
+  if (!s.github_token_configured) tips.push(`<b>Add a GitHub token.</b> Without <code>GITHUB_TOKEN</code> in <code>.env</code>, GitHub allows only 60 requests an hour and private repositories can't be read.`);
+  if (s.git_available === false) tips.push(`<b>Install git on the server.</b> Git-history scanning needs it.`);
+  if (!s.alert_channels.email) tips.push(`<b>Turn on email alerts</b> with <code>SMTP_HOST</code>, <code>SMTP_USER</code>, <code>SMTP_PASSWORD</code> and <code>ALERT_EMAIL_TO</code> in <code>.env</code>. For Gmail, use an App Password.`);
+  if (!s.webhook_secret_configured) tips.push(`<b>Get alerts seconds after a push:</b> set <code>GITHUB_WEBHOOK_SECRET</code> and add a GitHub push webhook to <code>${esc(s.public_url || location.origin)}/webhook/github</code>${s.public_url ? "" : " (GitHub must be able to reach it: run <code>python -m app.serve --ngrok</code>)"}. Until then, repositories are checked every ${mins}.`);
+  render("status",
+    chip(s.github_token_configured ? "yes" : "no", s.github_token_configured ? "GitHub token set" : "No GitHub token") +
+    chip(s.git_available ? "yes" : "bad", s.git_available ? "History scanning available" : "git missing") +
+    chip(s.webhook_secret_configured ? "yes" : "", s.webhook_secret_configured ? `Push webhook on · ${mins} fallback` : `Checks every ${mins}`) +
+    (s.public_url ? chip("yes", "Public tunnel on", `${s.public_url}/webhook/github`) : "") +
+    chip(channels.length ? "yes" : "", channels.length ? `Alerts: ${esc(channels.join(", "))}` : "Alerts: dashboard only",
+         s.alert_channels.email ? `${s.email_mode} emails to ${s.email_to}` : "") +
+    (s.alert_channels.email ? `<a href="#" onclick="testEmail(event)">Send test email</a>` : "") +
+    `<span>${s.rules} rules${s.custom_rules ? ` (${s.custom_rules} custom)` : ""}</span>` +
+    (tips.length ? `<details class="tips" style="flex-basis:100%"><summary>${tips.length} setup tip${tips.length > 1 ? "s" : ""}</summary><ul>${tips.map(t => `<li>${t}</li>`).join("")}</ul></details>` : ""));
+}
+
+function historyState(r) {
+  if (r.history_error) return `<div class="err-text">${esc(r.history_error)}</div>`;
+  const st = r.history_state || "not run";
+  if (st === "running" || st === "queued")
+    return `<span class="state running"><span class="spin" aria-hidden="true"></span>${st === "queued" ? "Queued" : "Walking commits"}</span>`;
+  if (st === "done")
+    return `<span class="state done">Up to date</span><div class="muted" title="${esc(r.history_summary || "")}">${ago(r.history_scanned_at)}</div>`;
+  return `<span class="muted">${esc(st)}</span>`;
+}
+
+async function refreshRepos() {
+  const repos = state.repos = await api("/api/repos");
+  $("repoCount").textContent = `(${repos.length})`;
+  if (state.repoId && !repos.some(r => r.id === state.repoId)) state.repoId = null;
+  if (!repos.length) return render("repos", `<div class="empty">No repositories yet. Paste a GitHub URL above to scan one.</div>`);
+  let h = `<table><thead><tr><th>Repository</th><th>Code scan</th><th>Git history</th><th>Last result</th><th><span hidden>Actions</span></th></tr></thead><tbody>`;
+  for (const r of repos) {
+    const busy = state.busy.has(r.id);
+    h += `<tr class="clickable ${state.repoId === r.id ? "selected" : ""}" onclick="selectRepo(${r.id})" title="Show only this repository's findings">
+      <td><a href="${esc(r.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()"><b>${esc(r.owner)}/${esc(r.name)}</b></a>
+          <div class="muted">branch <code>${esc(r.branch)}</code></div></td>
+      <td title="${esc(fullTime(r.last_scanned_at))}">${ago(r.last_scanned_at)}${r.last_commit_sha ? `<div class="muted">at <code class="nw">${esc(r.last_commit_sha.slice(0, 7))}</code></div>` : ""}</td>
+      <td>${historyState(r)}</td>
+      <td style="max-width:340px">${r.last_error ? `<div class="err-text">${esc(r.last_error)}</div>` : ""}<div class="muted">${esc(r.last_scan_summary || "")}</div></td>
+      <td><div class="actions">
+        <button class="btn small" ${busy ? "disabled" : ""} onclick="repoAction(event, ${r.id}, 'rescan')">${busy ? `<span class="spin" aria-hidden="true"></span>` : ""}Rescan</button>
+        <button class="btn small" onclick="repoAction(event, ${r.id}, 'history')">Scan history</button>
+        <button class="btn small danger" onclick="repoAction(event, ${r.id}, 'remove')">Remove</button>
+      </div></td>
+    </tr>`;
+  }
+  render("repos", h + "</tbody></table>");
+  const sel = repos.find(r => r.id === state.repoId);
+  render("filterPill", sel ? `<span class="filter-pill">${esc(sel.owner)}/${esc(sel.name)}<button aria-label="Show all repositories" onclick="selectRepo(${sel.id})">×</button></span>` : "");
+}
+
+function findingsTable(rows, resolved) {
+  if (!rows.length) return `<div class="empty">${resolved ? "Nothing resolved yet. When a secret is deleted from the code, it moves here." : "No secrets in the current code."}</div>`;
+  let h = `<table><thead><tr><th>Severity</th><th>Secret</th><th>Location</th><th>Value (masked)</th><th>${resolved ? "Removed" : "First seen"}</th></tr></thead><tbody>`;
+  for (const f of rows) {
+    const repo = repoSlug(f.repo_url);
+    const link = f.commit_sha ? `https://github.com/${repo}/blob/${f.commit_sha}/${f.file_path}${f.line_number ? "#L" + f.line_number : ""}` : null;
+    const loc = `${esc(f.file_path)}${f.line_number ? ":" + f.line_number : ""}`;
+    const when = resolved ? f.removed_at : f.first_seen_at;
+    h += `<tr>
+      <td><span class="sev ${esc(f.severity)}">${esc(f.severity)}</span></td>
+      <td>${esc(f.description)}<div class="muted">${esc(f.rule_id)}</div></td>
+      <td><div class="muted">${esc(repo)}</div>${link && !resolved ? `<a href="${esc(link)}" target="_blank" rel="noopener"><code class="nw">${loc}</code></a>` : `<code class="nw">${loc}</code>`}</td>
+      <td><code class="nw">${esc(f.matched_text)}</code></td>
+      <td title="${esc(fullTime(when))}">${ago(when)}${resolved ? `<div class="muted">first seen ${ago(f.first_seen_at)}</div>` : ""}</td>
+    </tr>`;
+  }
+  return h + "</tbody></table>";
+}
+
+function presencePill(v) {
+  if (v === 1) return '<span class="pill in-code">Still in code</span>';
+  if (v === 0) return '<span class="pill gone">Deleted from code</span>';
+  return '<span class="pill unknown">Unknown</span>';
+}
+function commitLink(repo, sha) {
+  return sha ? `<a href="https://github.com/${esc(repo)}/commit/${esc(sha)}" target="_blank" rel="noopener"><code>${esc(sha.slice(0, 7))}</code></a>` : "—";
+}
+
+function historyTable(rows) {
+  if (!rows.length) {
+    const running = state.repos.some(r => ["queued", "running"].includes(r.history_state));
+    return `<div class="empty">${running ? "A history scan is running. Results appear here when it finishes."
+      : state.historyFilter !== "all" ? "Nothing matches this filter."
+      : "No secrets in git history. History is scanned when a repository is added and again on every new push."}</div>`;
+  }
+  let h = `<table><thead><tr><th>Severity</th><th>Secret</th><th>Where</th><th>Value</th><th>Introduced</th><th>Status</th><th>Commits</th></tr></thead><tbody>`;
+  for (const r of rows) {
+    const repo = `${r.owner}/${r.name}`;
+    const trail = (r.commits || []).map(c => `<div class="trail-item">
+        <span class="act-${esc(c.action)}">${c.action === "added" ? "+ added" : "− removed"}</span>
+        ${commitLink(repo, c.sha)} · ${fmtDate(c.date)} · ${esc(c.author_name || "")}
+        <div class="muted">${esc(c.subject || "")}</div></div>`).join("");
+    h += `<tr>
+      <td><span class="sev ${esc(r.severity)}">${esc(r.severity)}</span></td>
+      <td>${esc(r.description)}<div class="muted">${esc(r.rule_id)}</div></td>
+      <td><div class="muted">${esc(repo)}</div><code class="nw">${esc(r.file_path)}${r.line_number ? ":" + r.line_number : ""}</code></td>
+      <td><code class="nw">${esc(r.matched_text)}</code></td>
+      <td>${commitLink(repo, r.first_commit_sha)} <span class="muted">${esc(r.first_commit_subject || "")}</span>
+          <div class="muted">${esc(r.first_author_name || "unknown")} · <span class="nw">${fmtDate(r.first_commit_date)}</span></div></td>
+      <td>${presencePill(r.still_present)}${r.removed_commit_sha
+            ? `<div class="muted" style="margin-top:4px">removed in ${commitLink(repo, r.removed_commit_sha)}<br><span class="nw">${fmtDate(r.removed_commit_date)}</span></div>` : ""}</td>
+      <td>${r.occurrences}${trail ? `<details class="trail-box" data-key="${esc(r.fingerprint)}"><summary>Trail</summary><div class="trail">${trail}</div></details>` : ""}</td>
+    </tr>`;
+  }
+  return h + "</tbody></table>";
+}
+
+const ALERT_LABEL = { ci_blocked: "CI blocked", new_secret: "Secret exposed", secret_removed: "Secret removed",
+                      secret_reintroduced: "Secret re-introduced", history_secret: "Found in git history" };
+
+function alertTable(rows) {
+  if (!rows.length) return `<div class="empty">${state.alertFilter === "all" ? "No alerts yet." : "No alerts of this kind."}</div>`;
+  const first = state.seen.alerts === null;
+  const known = state.seen.alerts || new Set();
+  let h = `<table><thead><tr><th>When</th><th>Event</th><th>Repository</th><th>Details</th></tr></thead><tbody>`;
+  for (const a of rows) {
+    const msg = esc(a.message).replace(/(https:\/\/github\.com\/[^\s&]+)/g, '<a href="$1" target="_blank" rel="noopener">view</a>');
+    const repo = state.repos.find(r => r.id === a.repo_id);
+    h += `<tr class="${!first && !known.has(a.id) ? "fresh" : ""}">
+      <td style="white-space:nowrap" title="${esc(fullTime(a.created_at))}">${ago(a.created_at)}</td>
+      <td class="kind kind-${esc(a.kind)}">${ALERT_LABEL[a.kind] || esc(a.kind)}</td>
+      <td class="muted" style="white-space:nowrap">${repo ? esc(repo.owner + "/" + repo.name) : "—"}</td>
+      <td>${msg}</td></tr>`;
+  }
+  return h + "</tbody></table>";
+}
+
+async function refreshData() {
+  const repoQs = state.repoId ? `repo_id=${state.repoId}` : "";
+  const hq = [repoQs, state.historyFilter !== "all" ? `presence=${state.historyFilter}` : ""].filter(Boolean).join("&");
+  const [ciRuns, active, removed, history, histAll, stats, alerts] = await Promise.all([
+    api(`/api/ci-runs${repoQs ? "?" + repoQs : ""}`),
+    api(`/api/findings?${repoQs ? repoQs + "&" : ""}status=active`),
+    api(`/api/findings?${repoQs ? repoQs + "&" : ""}status=removed`),
+    api(`/api/history${hq ? "?" + hq : ""}`),
+    state.historyFilter === "all" ? null : api(`/api/history${repoQs ? "?" + repoQs : ""}`),
+    api(`/api/history/stats${repoQs ? "?" + repoQs : ""}`),
+    api(`/api/alerts${repoQs ? "?" + repoQs : ""}`),
+  ]);
+
+  render("stats", `
+    <div class="stat ${active.length ? "danger" : "ok"}"><div class="n">${active.length}</div><div class="l">secrets in the current code</div></div>
+    <div class="stat ${stats.history_only ? "warn" : "ok"}"><div class="n">${stats.history_only}</div><div class="l">deleted, still in git history</div></div>
+    <div class="stat"><div class="n">${stats.total}</div><div class="l">ever committed</div></div>
+    <div class="stat ${removed.length ? "ok" : ""}"><div class="n">${removed.length}</div><div class="l">resolved</div></div>`);
+
+  const shownAlerts = state.alertFilter === "all" ? alerts
+    : alerts.filter(a => a.kind === state.alertFilter || (state.alertFilter === "new_secret" && a.kind === "secret_reintroduced"));
+  const badge = (id, n, hot) => { const b = $(id); b.textContent = n; b.classList.toggle("hot", !!hot && n > 0); };
+  badge("badge-code", active.length, true);
+  badge("badge-history", (histAll || history).length);
+  badge("badge-alerts", alerts.length);
+  badge("badge-resolved", removed.length);
+  state.ciRuns = ciRuns;
+  const latestPerRepo = {};   // latest FINISHED run per repo: what the gate says now
+  ciRuns.forEach(r => { if (r.gate !== "running" && !(r.repo_id in latestPerRepo)) latestPerRepo[r.repo_id] = r; });
+  // Red when the latest run of any repo is blocking a merge right now.
+  badge("badge-ci", ciRuns.length, Object.values(latestPerRepo).some(r => r.gate === "blocked"));
+  render("ciTable", ciTable(ciRuns));
+  const ciErrs = state.repos.filter(r => r.ci_error && (!state.repoId || r.id === state.repoId));
+  render("ciErrors", ciErrs.map(r => `<div class="ci-err"><b>${esc(r.owner)}/${esc(r.name)}:</b> ${esc(r.ci_error)}</div>`).join(""));
+  const synced = Math.max(0, ...state.repos.map(r => r.ci_synced_at || 0));
+  $("ciSynced").textContent = synced ? `Synced with GitHub ${ago(synced)}` : "";
+
+  render("codeTable", findingsTable(active, false));
+  render("resolvedTable", findingsTable(removed, true));
+  render("historyTable", historyTable(history));
+  render("historyFilters", [["all", "All"], ["history_only", "Deleted from code"], ["present", "Still in code"]].map(([k, l]) =>
+    `<button class="chip" aria-pressed="${state.historyFilter === k}" onclick="state.historyFilter='${k}'; refreshAll()">${l}</button>`).join(""));
+  render("alertFilters", [["all", "All"], ["ci_blocked", "CI"], ["new_secret", "Exposed"], ["history_secret", "In history"], ["secret_removed", "Removed"]].map(([k, l]) =>
+    `<button class="chip" aria-pressed="${state.alertFilter === k}" onclick="state.alertFilter='${k}'; refreshAll()">${l}</button>`).join(""));
+  render("alertTable", alertTable(shownAlerts));
+  state.seen.alerts = new Set(alerts.map(a => a.id));
+}
+
+const GATE_LABEL = { blocked: "Blocked", passed: "Passed", error: "Scan error", running: "Running",
+                     failed: "Failed", cancelled: "Cancelled" };
+const GATE_TIP = { blocked: "New secrets at or above the threshold: the check failed and the merge is blocked",
+                   failed: "The workflow failed but left no scan result (another step failed, or an older workflow file)",
+                   error: "The scan could not run; see the run log", running: "Still running on GitHub" };
+
+function trigger(r) {
+  const repo = `${r.owner}/${r.name}`;
+  if (r.pr_number) return `<a href="https://github.com/${esc(repo)}/pull/${r.pr_number}" target="_blank" rel="noopener">Pull request #${r.pr_number}</a>`;
+  if (r.event === "schedule") return "Weekly audit";
+  if (r.event === "workflow_dispatch") return "Manual run";
+  return `Push`;
+}
+
+function ciTable(rows) {
+  if (!rows.length) return `<div class="empty">No CI runs yet. Add the <a href="https://github.com/ratnakarmishra712-jpg/hh/blob/main/ci/github-actions-secret-scan.yml" target="_blank" rel="noopener">Secret scan workflow</a> to a repository you monitor; its runs appear here shortly after they finish.<br>For a private repository, the server's <code>GITHUB_TOKEN</code> also needs <b>Actions: Read</b>.</div>`;
+  let h = `<table><thead><tr><th>Result</th><th>Trigger</th><th>Commit</th><th>Findings</th><th>When</th></tr></thead><tbody>`;
+  for (const r of rows) {
+    const repo = `${r.owner}/${r.name}`;
+    const gating = (r.findings || []).filter(f => f.gating);
+    const list = gating.slice(0, 2).map(f => `<div class="ci-find"><span class="sev ${esc(f.severity)}">${esc(f.severity)}</span> ${esc(f.description)} · <code class="nw">${esc(f.file_path)}${f.line_number ? ":" + f.line_number : ""}</code>${f.source === "history" ? ` <span class="muted">(history)</span>` : ""}</div>`).join("");
+    const more = gating.length > 2 ? `<details class="trail-box" data-key="ci-${r.run_id}"><summary>${gating.length - 2} more</summary>${gating.slice(2).map(f => `<div class="ci-find"><span class="sev ${esc(f.severity)}">${esc(f.severity)}</span> ${esc(f.description)} · <code class="nw">${esc(f.file_path)}:${f.line_number || ""}</code></div>`).join("")}</details>` : "";
+    const findings = r.gate === "blocked" ? list + more
+      : r.gate === "passed" ? `<span class="muted">No new secrets${r.total_count ? ` (${r.total_count} known, accepted)` : ""}</span>`
+      : r.gate === "running" ? `<span class="muted">Waiting for the result…</span>`
+      : `<span class="muted">No scan result</span>`;
+    const who = r.commit_author || r.actor || "";
+    const sha = r.head_sha || "";
+    h += `<tr>
+      <td><span class="gate ${esc(r.gate)}" title="${esc(GATE_TIP[r.gate] || "")}">${r.gate === "running" ? `<span class="spin" aria-hidden="true"></span>` : ""}${GATE_LABEL[r.gate] || esc(r.gate)}</span></td>
+      <td>${trigger(r)}<div class="muted">${esc(repo)} · <code class="nw">${esc(r.branch || "")}</code></div>${r.scope ? `<div class="muted">${esc(r.scope)}</div>` : ""}</td>
+      <td>${sha ? `<a href="https://github.com/${esc(repo)}/commit/${esc(sha)}" target="_blank" rel="noopener"><code>${esc(sha.slice(0, 7))}</code></a>` : "—"} <span class="muted">${esc(r.title || "")}</span>${who ? `<div class="muted">by ${esc(who)}</div>` : ""}</td>
+      <td style="min-width:260px">${findings}</td>
+      <td style="white-space:nowrap" title="${esc(fmtDate(r.run_created_at))}">${esc(agoIso(r.run_created_at))}${r.html_url ? `<div><a href="${esc(r.html_url)}" target="_blank" rel="noopener">Run log ↗</a></div>` : ""}</td>
+    </tr>`;
+  }
+  return h + "</tbody></table>";
+}
+
+function agoIso(iso) { const t = Date.parse(iso || ""); return isNaN(t) ? "—" : ago(t / 1000); }
+
+let lastCiSync = 0;
+async function syncCi(manual) {
+  // The server throttles per repo, so this is cheap to call.
+  if (!manual && Date.now() - lastCiSync < 20000) return;
+  lastCiSync = Date.now();
+  const btn = $("ciRefresh");
+  if (manual) { btn.disabled = true; btn.textContent = "Refreshing…"; }
+  try { await api(`/api/ci-sync${state.repoId ? "?repo_id=" + state.repoId : ""}`, { method: "POST" }); }
+  catch (err) { if (manual) toast("CI refresh failed: " + esc(err.message), "err"); }
+  finally { if (manual) { btn.disabled = false; btn.textContent = "Refresh"; refreshAll(); } }
+}
+
+// ---------------------------------------------------------------- refresh loop
+let timer = null, inFlight = null;
+function scanning() {
+  return state.busy.size > 0 || state.repos.some(r => ["queued", "running"].includes(r.history_state))
+    || (state.tab === "ci" && (state.ciRuns || []).some(r => r.gate === "running"));
+}
+
+async function refreshAll() {
+  if (inFlight) return inFlight;
+  inFlight = (async () => {
+    try {
+      if (state.tab === "ci" && !document.hidden) await syncCi(false);
+      await refreshRepos();
+      await Promise.all([refreshStatus(), refreshData()]);
+      state.lastOk = Date.now();
+      $("live").className = "live" + (scanning() ? " busy" : "");
+    } catch (err) {
+      console.error(err);
+      $("live").className = "live down";
+      $("liveText").textContent = "Offline";
+    } finally {
+      inFlight = null;
+      clearTimeout(timer);
+      // Poll quickly while something is scanning, gently otherwise.
+      timer = setTimeout(refreshAll, scanning() ? 3000 : 15000);
+      updateLive();
+    }
+  })();
+  return inFlight;
+}
+function updateLive() {
+  if (!state.lastOk || $("live").classList.contains("down")) return;
+  const s = Math.round((Date.now() - state.lastOk) / 1000);
+  $("liveText").textContent = scanning() ? "Scanning…" : s < 5 ? "Live" : `Updated ${s}s ago`;
+}
+setInterval(updateLive, 1000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshAll(); });
+
+// ---------------------------------------------------------------- wiring
+$("scanForm").addEventListener("submit", addRepo);
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => setTab(t.dataset.tab)));
+document.querySelector(".tabs").addEventListener("keydown", e => {
+  const tabs = [...document.querySelectorAll(".tab")];
+  const i = tabs.findIndex(t => t.dataset.tab === state.tab);
+  if (e.key === "ArrowRight") setTab(tabs[(i + 1) % tabs.length].dataset.tab, true);
+  if (e.key === "ArrowLeft") setTab(tabs[(i - 1 + tabs.length) % tabs.length].dataset.tab, true);
+});
+setTab(["ci", "code", "history", "alerts", "resolved"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "ci");
+refreshAll();
+
+// Arriving from the start page with ?repo=<url>: fill it in and start the scan.
+(() => {
+  const repo = new URLSearchParams(location.search).get("repo");
+  if (!repo) return;
+  history.replaceState(null, "", location.pathname + location.hash);   // a reload must not rescan
+  $("repoUrl").value = repo;
+  addRepo();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,34 @@
+#!/bin/sh
+# Secret Sentinel pre-push hook: stops a push whose new commits add a secret,
+# including one committed with --no-verify or deleted again in a later commit
+# (it would still be uploaded in the history).
+#
+#   Enable once per clone:   git config core.hooksPath .githooks
+#   Skip in an emergency:    git push --no-verify   (CI still scans the push)
+
+root=$(git rev-parse --show-toplevel) || exit 1
+sentinel="${SENTINEL_HOME:-$root}/ci_scan.py"
+
+# Git passes one line per ref being pushed:
+#   <local ref> <local sha> <remote ref> <remote sha>
+tips=""
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$local_sha" in
+    *[!0]*) tips="$tips --tip $local_sha" ;;   # a commit to upload
+    *) ;;                                       # all zeros: deleting a remote branch
+  esac
+done
+[ -z "$tips" ] && exit 0
+
+if ! command -v python3 >/dev/null 2>&1 || [ ! -f "$sentinel" ]; then
+  echo "warning: Secret Sentinel not found at $sentinel (set SENTINEL_HOME); push not scanned." >&2
+  exit 0
+fi
+# Only commits no remote has yet: exactly what this push uploads.
+# shellcheck disable=SC2086  # $tips is a list of --tip arguments
+python3 "$sentinel" scan-history "$root" --unpushed $tips --annotations off || {
+  echo "" >&2
+  echo "Push blocked by Secret Sentinel: a commit being pushed contains a secret." >&2
+  echo "Remove it from those commits (e.g. 'git commit --amend' or an interactive rebase), and rotate it if it was real." >&2
+  exit 1
+}

@@ -1,0 +1,35 @@
+#!/bin/sh
+# Secret Sentinel pre-commit hook: stops a commit that adds a secret, before
+# it ever leaves your machine (so there is nothing to rotate).
+#
+#   Enable once per clone:   git config core.hooksPath .githooks
+#   In another repository:   copy .githooks/ there and set SENTINEL_HOME to
+#                            your Secret Sentinel checkout
+#   Skip in an emergency:    git commit --no-verify   (CI still scans the push)
+
+root=$(git rev-parse --show-toplevel) || exit 1
+sentinel="${SENTINEL_HOME:-$root}/ci_scan.py"
+
+# 1. .env files hold real credentials by design: never commit them.
+#    Templates (.env.example, .env.sample, .env.template) are fine.
+envs=$(git diff --cached --name-only --diff-filter=ACM \
+         | grep -E '(^|/)\.env(\.[^/]*)?$' | grep -vE '\.(example|sample|template)$')
+if [ -n "$envs" ]; then
+  echo "Commit blocked: .env files hold real secrets and must not be committed:" >&2
+  echo "$envs" | sed 's/^/  /' >&2
+  echo "Unstage with 'git rm --cached <file>' and add it to .gitignore." >&2
+  exit 1
+fi
+
+# 2. Scan the lines this commit adds. Removed lines are never scanned, so
+#    deleting a secret is never blocked.
+if ! command -v python3 >/dev/null 2>&1 || [ ! -f "$sentinel" ]; then
+  echo "warning: Secret Sentinel not found at $sentinel (set SENTINEL_HOME); commit not scanned." >&2
+  exit 0
+fi
+python3 "$sentinel" scan-staged "$root" --annotations off || {
+  echo "" >&2
+  echo "Commit blocked by Secret Sentinel. Read the secret from the environment instead." >&2
+  echo "A test fixture or false positive? Add '# sentinel:ignore' to the line, or an entry to .sentinelignore." >&2
+  exit 1
+}

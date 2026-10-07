@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Secret Sentinel: scan every push and pull request in CI, or scan any GitHub repository now.">
+<title>Secret Sentinel</title>
+<style>
+  :root {
+    --bg: #0f1117; --panel: #171a23; --border: #2a2e3a; --text: #e6e8ee;
+    --muted: #8b90a0; --accent: #5b8cff; --mint: #4fd1a5; --critical: #ff5468; --ok: #4caf7d;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.55; }
+  a { color: var(--accent); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  header { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 20px 0; border-bottom: 1px solid var(--border); }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+  .brand svg { width: 26px; height: 28px; color: var(--mint); }
+  header nav a { color: var(--muted); text-decoration: none; font-size: 14px; margin-left: 18px; }
+  header nav a:hover { color: var(--text); }
+  main { padding: 48px 0 40px; }
+  .eyebrow { color: var(--mint); font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+  h1 { font-size: clamp(30px, 4.6vw, 48px); line-height: 1.12; letter-spacing: -1px; margin: 10px 0 14px; }
+  h1 span { color: var(--accent); }
+  .intro { color: var(--muted); max-width: 660px; font-size: 16px; margin: 0 0 34px; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 26px; display: flex; flex-direction: column; position: relative; }
+  .card::before { content: ""; position: absolute; top: 0; left: 26px; right: 26px; height: 2px; background: var(--card-accent, var(--accent)); }
+  .card.now { --card-accent: var(--mint); }
+  .badge { align-self: flex-start; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--card-accent, var(--accent)); border: 1px solid var(--border); border-radius: 6px; padding: 3px 9px; margin-bottom: 14px; }
+  .card h2 { margin: 0 0 6px; font-size: 22px; }
+  .card .desc { color: var(--muted); margin: 0 0 16px; font-size: 14px; }
+  ol, ul { margin: 0 0 18px; padding-left: 20px; font-size: 14px; }
+  li { margin: 6px 0; }
+  code { background: rgba(255,255,255,.06); padding: 1px 5px; border-radius: 4px; font-size: 13px; overflow-wrap: anywhere; }
+  .actions { margin-top: auto; display: flex; flex-wrap: wrap; gap: 10px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 14px; text-decoration: none; border: 1px solid transparent; cursor: pointer; font-family: inherit; }
+  .btn.primary { background: var(--card-accent, var(--accent)); color: #0b0f18; }
+  .btn.ghost { background: transparent; border-color: var(--border); color: var(--text); }
+  .btn:focus-visible, input:focus-visible { outline: 3px solid var(--text); outline-offset: 3px; }
+  form { display: flex; flex-direction: column; gap: 10px; margin: 0 0 16px; }
+  label { font-size: 13px; color: var(--muted); }
+  input { width: 100%; padding: 11px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 14px; font-family: inherit; }
+  .hint { color: var(--muted); font-size: 12px; margin: 0; }
+  .err { color: var(--critical); font-size: 13px; min-height: 18px; margin: 0; }
+  .coverage { display: flex; gap: 18px; align-items: center; margin-top: 22px; padding: 16px 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
+  .coverage strong { font-size: 12px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; flex-shrink: 0; }
+  .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag { font-size: 12px; background: rgba(255,255,255,.05); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; }
+  .status { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; font-size: 12px; color: var(--muted); }
+  .status span { border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; }
+  .status .yes { color: var(--ok); border-color: rgba(76,175,125,.4); }
+  .status .no { color: var(--critical); border-color: rgba(255,84,104,.4); }
+  .ci-live { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 0 0 16px; font-size: 14px; display: none; }
+  .ci-live.on { display: block; }
+  .ci-live .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .ci-live .nums { color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .gate { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+  .gate.blocked { background: rgba(255,84,104,.15); color: var(--critical); }
+  .gate.passed { background: rgba(76,175,125,.15); color: var(--ok); }
+  .gate.other { background: rgba(139,144,160,.15); color: var(--muted); }
+  details.setup summary { cursor: pointer; color: var(--muted); font-size: 14px; margin-bottom: 8px; }
+  details.setup[open] summary { color: var(--text); }
+  footer { border-top: 1px solid var(--border); padding: 18px 0 26px; color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  @media (max-width: 760px) {
+    .wrap { padding: 0 16px; }
+    .grid { grid-template-columns: minmax(0, 1fr); }
+    .coverage { flex-direction: column; align-items: flex-start; }
+    header nav a { margin-left: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 32 36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3 28 8v10c0 7-7 12-12 15C11 30 4 25 4 18V8Z"/><path d="m10 17 4 4 8-9"/></svg>
+      Secret Sentinel
+    </div>
+    <nav aria-label="Main">
+      <a href="/dashboard">Dashboard</a>
+      <a href="https://github.com/ratnakarmishra712-jpg/hh#the-ci-pipeline">Docs</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="eyebrow">Find secrets before they ship</div>
+    <h1>Keep keys out of your code.<br><span>Choose how you scan.</span></h1>
+    <p class="intro">Secret Sentinel finds API keys, tokens, passwords, private keys and database credentials in a repository and its entire git history. Put it in CI to block new leaks at the pull request, or scan any repository right now.</p>
+
+    <div class="grid">
+      <section class="card" aria-labelledby="ci-title">
+        <span class="badge">Every push and pull request</span>
+        <h2 id="ci-title">Scan in CI</h2>
+        <p class="desc">Runs automatically on GitHub Actions and fails the build on a new secret, so it cannot be merged.</p>
+        <div class="ci-live" id="ciLive" aria-live="polite"></div>
+        <details class="setup" id="ciSetup" open>
+        <summary>Set up CI in a repository</summary>
+        <ol>
+          <li>Copy <code>ci/github-actions-secret-scan.yml</code> into your repository as <code>.github/workflows/secret-scan.yml</code>.</li>
+          <li>Optional: add SMTP or Slack secrets for alerts, a <code>.sentinel-rules.json</code> for your own token formats, and <code>SENTINEL_BANDIT=true</code> to also scan Python code for vulnerabilities.</li>
+          <li>In branch protection, make the <b>Secret scan</b> check required.</li>
+        </ol>
+        </details>
+        <div class="actions">
+          <a class="btn primary" href="https://github.com/ratnakarmishra712-jpg/hh/blob/main/ci/github-actions-secret-scan.yml">Get the workflow <span aria-hidden="true">↗</span></a>
+          <a class="btn ghost" href="https://github.com/ratnakarmishra712-jpg/hh#the-ci-pipeline">Setup guide <span aria-hidden="true">↗</span></a>
+        </div>
+      </section>
+
+      <section class="card now" aria-labelledby="now-title">
+        <span class="badge">On demand</span>
+        <h2 id="now-title">Scan a repository now</h2>
+        <p class="desc">Paste a GitHub URL. The current code and the full history are scanned, and the repository stays monitored for new pushes.</p>
+        <form id="scanForm" novalidate>
+          <label for="repoUrl">Repository URL</label>
+          <input id="repoUrl" name="repo" type="url" inputmode="url" autocomplete="off"
+                 placeholder="https://github.com/owner/repo" aria-describedby="repoHint repoErr" required>
+          <p class="hint" id="repoHint">Add <code>/tree/branch-name</code> to scan a branch other than the default. Private repositories need a <code>GITHUB_TOKEN</code> on the server.</p>
+          <p class="err" id="repoErr" role="alert"></p>
+        </form>
+        <div class="actions">
+          <button class="btn primary" type="submit" form="scanForm">Scan repository <span aria-hidden="true">→</span></button>
+          <a class="btn ghost" href="/dashboard">Open dashboard</a>
+        </div>
+      </section>
+    </div>
+
+    <section class="coverage" aria-label="What both modes detect">
+      <strong>Both detect</strong>
+      <div class="tags">
+        <span class="tag">26 known key formats</span><span class="tag">Database connection strings</span>
+        <span class="tag">Passwords and tokens</span><span class="tag">Private keys</span>
+        <span class="tag">High-entropy strings</span><span class="tag" id="customTag">Your own rules</span>
+      </div>
+    </section>
+    <div class="status" id="status" aria-live="polite"></div>
+  </main>
+
+  <footer>
+    <span>Secret Sentinel · secrets detection for code and git history</span>
+    <span>Values are always masked. Rotate anything that leaked.</span>
+  </footer>
+</div>
+
+<script>
+const form = document.getElementById("scanForm");
+const input = document.getElementById("repoUrl");
+const err = document.getElementById("repoErr");
+
+form.addEventListener("submit", e => {
+  e.preventDefault();
+  const url = input.value.trim();
+  if (!/^https:\/\/github\.com\/[^\/\s]+\/[^\/\s]+/i.test(url)) {
+    err.textContent = "Enter a GitHub repository URL, such as https://github.com/owner/repo";
+    input.setAttribute("aria-invalid", "true");
+    input.focus();
+    return;
+  }
+  err.textContent = "";
+  input.removeAttribute("aria-invalid");
+  location.href = "/dashboard?repo=" + encodeURIComponent(url);
+});
+
+// Live CI status: the latest Secret scan runs the dashboard read from GitHub Actions.
+const ago = iso => { const s = (Date.now() - Date.parse(iso)) / 1000;
+  return isNaN(s) ? "" : s < 90 ? "just now" : s < 3600 ? `${Math.round(s / 60)} min ago`
+       : s < 86400 ? `${Math.round(s / 3600)} h ago` : new Date(iso).toLocaleDateString(); };
+const escH = t => String(t ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+fetch("/api/ci-summary").then(r => r.ok ? r.json() : null).then(c => {
+  if (!c || !c.last_run) return;
+  const l = c.last_run;
+  const gate = l.gate === "blocked" ? `<span class="gate blocked">Blocked</span>`
+             : l.gate === "passed" ? `<span class="gate passed">Passed</span>`
+             : `<span class="gate other">${escH({error: "Scan error", failed: "Failed", cancelled: "Cancelled"}[l.gate] || l.gate)}</span>`;
+  const what = l.pr_number ? `pull request #${l.pr_number}` : l.event === "schedule" ? "weekly audit" : `push to ${escH(l.branch)}`;
+  const box = document.getElementById("ciLive");
+  box.innerHTML = `<div class="row">${gate}<span>Last run: <b>${escH(l.owner)}/${escH(l.name)}</b>, ${what}, ${ago(l.run_created_at)}${l.gate === "blocked" ? ` · ${l.gating_count} secret(s)` : ""}</span></div>
+    <div class="nums">${c.repos_reporting} of ${c.repos_total} monitored repositories report CI · last 7 days: ${c.blocked_7d} blocked, ${c.passed_7d} passed${c.running ? ` · ${c.running} running now` : ""} · <a href="/dashboard#ci">Open CI runs →</a></div>`;
+  box.classList.add("on");
+  document.getElementById("ciSetup").open = false;   // set up already: keep the steps folded
+}).catch(() => {});
+
+// Live server status, so a missing token or git binary is visible up front.
+fetch("/api/status").then(r => r.ok ? r.json() : null).then(s => {
+  if (!s) return;
+  const chip = (ok, yes, no) => `<span class="${ok ? "yes" : "no"}">${ok ? yes : no}</span>`;
+  document.getElementById("status").innerHTML =
+    chip(s.github_token_configured, "GitHub token set", "No GitHub token: 60 API requests/hour") +
+    chip(s.git_available, "History scanning available", "git missing: no history scans") +
+    `<span>${s.rules} rules${s.custom_rules ? ` (${s.custom_rules} custom)` : ""}</span>`;
+  if (s.custom_rules) document.getElementById("customTag").textContent = `${s.custom_rules} custom rule(s)`;
+}).catch(() => {});
+</script>
+</body>
+</html>
