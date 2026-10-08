@@ -100,8 +100,27 @@ def markdown_summary(title: str, findings: List[Dict], meta: Dict, gate_failed: 
     lines = [f"### {icon} {title}", ""]
     lines.append(" · ".join(f"{k}: **{v}**" for k, v in meta.items()))
     lines.append("")
+
     if not findings:
-        lines.append("No secrets found.")
+        only_history = meta.get("only_in_history", 0)
+
+        if title == "Secret scan — git history" and only_history:
+            lines.append("No new secrets were introduced in the scanned commits.")
+            lines.append("")
+            lines.append(
+                f"⚠️ **{only_history} secret(s) exist only in Git history.** "
+                "They were encountered by the history scan but were introduced "
+                "before the scanned range and are no longer present in the current code."
+            )
+            lines.append("")
+            lines.append(
+                "The cleanup commit is allowed to pass. However, deleting a secret "
+                "does not remove it from Git history, existing clones, or forks. "
+                "**Rotate any real exposed credential and remediate the history if required.**"
+            )
+        else:
+            lines.append("No secrets found.")
+
         return "\n".join(lines) + "\n"
     verdict = (f"Build **failed**: new findings at or above `{fail_on}`." if gate_failed
                else f"Gate passed (threshold `{fail_on}`).")
